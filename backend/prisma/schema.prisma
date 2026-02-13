@@ -1,0 +1,234 @@
+// Esquema de base de datos para PlayaManager
+// Prisma ORM - define la estructura de todas las tablas
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Tabla de Empresas/Kioskos (Multitenant)
+model Company {
+  id          String   @id @default(uuid())
+  companyId   String   @unique // BK-001, BK-002, etc.
+  name        String
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  users       User[]
+  products    Product[]
+  rentals     Rental[]
+  vendors     Vendor[]
+  vendorSales VendorSale[]
+  
+  @@map("companies")
+}
+
+// Tabla de Usuarios
+model User {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  password    String   // Hasheada con bcrypt
+  role        UserRole @default(OPERATOR)
+  fullName    String?
+  
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  rentals     Rental[]
+  rentalModifications RentalModification[]
+  
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN_KIOSK  // Dueño del kiosko
+  OPERATOR     // Operador de caja
+}
+
+// Tabla de Productos
+model Product {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  category    ProductCategory
+  isActive    Boolean         @default(true)
+  
+  companyId   String
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  rentalItems              RentalItem[]
+  vendorInventoryAssignments VendorInventoryAssignment[]
+  vendorSaleItems          VendorSaleItem[]
+  
+  @@map("products")
+}
+
+enum ProductCategory {
+  RENTAL   // Sillas, quitasoles, reposeras, carpas
+  VENDOR   // Helados, palmeras, bebidas (Fase 2)
+}
+
+// Tabla de Arriendos (Rentals)
+model Rental {
+  id              String       @id @default(uuid())
+  customerName    String
+  customerIdPhoto String?      // URL de la foto del ID (opcional en MVP)
+  status          RentalStatus @default(ACTIVE)
+  startTime       DateTime     @default(now())
+  endTime         DateTime?
+  totalAmount     Float
+  
+  companyId       String
+  company         Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  
+  items           RentalItem[]
+  modifications   RentalModification[]
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@map("rentals")
+}
+
+enum RentalStatus {
+  ACTIVE   // Arriendo abierto
+  CLOSED   // Arriendo cerrado/finalizado
+  VOIDED   // Arriendo anulado
+}
+
+// Tabla de Items de Arriendo (relación muchos a muchos)
+model RentalItem {
+  id         String   @id @default(uuid())
+  quantity   Int
+  unitPrice  Float
+  subtotal   Float
+  
+  rentalId   String
+  rental     Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  
+  createdAt  DateTime @default(now())
+  
+  @@map("rental_items")
+}
+
+// ========================================
+// MÓDULO DE VENDORS (Vendedores Ambulantes)
+// ========================================
+
+// Tabla de Vendedores
+model Vendor {
+  id              String        @id @default(uuid())
+  name            String
+  phone           String?
+  status          VendorStatus  @default(INACTIVE)
+  totalSalesToday Float         @default(0)
+  
+  companyId       String
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  inventoryAssignments VendorInventoryAssignment[]
+  sales                VendorSale[]
+  
+  @@map("vendors")
+}
+
+enum VendorStatus {
+  ACTIVE      // En ruta vendiendo
+  INACTIVE    // No está trabajando
+  ON_BREAK    // En descanso
+}
+
+// Tabla de Asignación de Inventario a Vendedores
+model VendorInventoryAssignment {
+  id               String   @id @default(uuid())
+  quantityAssigned Int      // Cantidad asignada inicialmente
+  quantityReturned Int      @default(0) // Cantidad devuelta al cierre
+  quantitySold     Int      @default(0) // Cantidad vendida
+  isActive         Boolean  @default(true) // Si el inventario sigue asignado
+  
+  vendorId         String
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id])
+  
+  assignedAt       DateTime @default(now())
+  closedAt         DateTime?
+  
+  @@map("vendor_inventory_assignments")
+}
+
+// Tabla de Ventas de Vendedores
+model VendorSale {
+  id          String           @id @default(uuid())
+  totalAmount Float
+  
+  vendorId    String
+  vendor      Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  companyId   String
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  items       VendorSaleItem[]
+  
+  createdAt   DateTime         @default(now())
+  
+  @@map("vendor_sales")
+}
+
+// Tabla de Items de Venta de Vendedores
+model VendorSaleItem {
+  id         String      @id @default(uuid())
+  quantity   Int
+  unitPrice  Float
+  subtotal   Float
+  
+  saleId     String
+  sale       VendorSale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id])
+  
+  createdAt  DateTime    @default(now())
+  
+  @@map("vendor_sale_items")
+}
+
+// Tabla de Historial de Modificaciones de Arriendos
+model RentalModification {
+  id            String   @id @default(uuid())
+  rentalId      String
+  rental        Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  
+  itemsAdded    Int      @default(0)
+  itemsRemoved  Int      @default(0)
+  previousTotal Float
+  newTotal      Float
+  modifiedAt    DateTime @default(now())
+  
+  @@map("rental_modifications")
+}
