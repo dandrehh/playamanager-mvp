@@ -32,7 +32,7 @@ model Company {
 model User {
   id          String   @id @default(uuid())
   username    String   @unique
-  password    String   // Hasheada con bcrypt
+  password    String
   role        UserRole @default(OPERATOR)
   fullName    String?
   
@@ -43,14 +43,13 @@ model User {
   updatedAt   DateTime @updatedAt
   
   rentals     Rental[]
-  rentalModifications RentalModification[]
   
   @@map("users")
 }
 
 enum UserRole {
-  ADMIN_KIOSK  // Dueño del kiosko
-  OPERATOR     // Operador de caja
+  ADMIN_KIOSK
+  OPERATOR
 }
 
 // Tabla de Productos
@@ -76,15 +75,15 @@ model Product {
 }
 
 enum ProductCategory {
-  RENTAL   // Sillas, quitasoles, reposeras, carpas
-  VENDOR   // Helados, palmeras, bebidas (Fase 2)
+  RENTAL
+  VENDOR
 }
 
 // Tabla de Arriendos (Rentals)
 model Rental {
   id              String       @id @default(uuid())
   customerName    String
-  customerIdPhoto String?      // URL de la foto del ID (opcional en MVP)
+  customerIdPhoto String?
   status          RentalStatus @default(ACTIVE)
   startTime       DateTime     @default(now())
   endTime         DateTime?
@@ -97,7 +96,6 @@ model Rental {
   user            User         @relation(fields: [userId], references: [id])
   
   items           RentalItem[]
-  modifications   RentalModification[]
   
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -106,12 +104,12 @@ model Rental {
 }
 
 enum RentalStatus {
-  ACTIVE   // Arriendo abierto
-  CLOSED   // Arriendo cerrado/finalizado
-  VOIDED   // Arriendo anulado
+  ACTIVE
+  CLOSED
+  VOIDED
 }
 
-// Tabla de Items de Arriendo (relación muchos a muchos)
+// Tabla de Items de Arriendo
 model RentalItem {
   id         String   @id @default(uuid())
   quantity   Int
@@ -125,110 +123,83 @@ model RentalItem {
   product    Product  @relation(fields: [productId], references: [id])
   
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   
   @@map("rental_items")
 }
 
-// ========================================
-// MÓDULO DE VENDORS (Vendedores Ambulantes)
-// ========================================
-
 // Tabla de Vendedores
 model Vendor {
-  id              String        @id @default(uuid())
-  name            String
-  phone           String?
-  status          VendorStatus  @default(INACTIVE)
-  totalSalesToday Float         @default(0)
+  id                     String                          @id @default(uuid())
+  name                   String
+  isActive               Boolean                         @default(true)
+  currentShiftStart      DateTime?
+  currentShiftInventory  VendorInventoryAssignment[]
   
-  companyId       String
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId              String
+  company                Company                         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  sales                  VendorSale[]
   
-  inventoryAssignments VendorInventoryAssignment[]
-  sales                VendorSale[]
+  createdAt              DateTime                        @default(now())
+  updatedAt              DateTime                        @updatedAt
   
   @@map("vendors")
 }
 
-enum VendorStatus {
-  ACTIVE      // En ruta vendiendo
-  INACTIVE    // No está trabajando
-  ON_BREAK    // En descanso
-}
-
 // Tabla de Asignación de Inventario a Vendedores
 model VendorInventoryAssignment {
-  id               String   @id @default(uuid())
-  quantityAssigned Int      // Cantidad asignada inicialmente
-  quantityReturned Int      @default(0) // Cantidad devuelta al cierre
-  quantitySold     Int      @default(0) // Cantidad vendida
-  isActive         Boolean  @default(true) // Si el inventario sigue asignado
+  id              String   @id @default(uuid())
+  quantityStart   Int
+  quantityCurrent Int
   
-  vendorId         String
-  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendorId        String
+  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   
-  productId        String
-  product          Product  @relation(fields: [productId], references: [id])
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
   
-  assignedAt       DateTime @default(now())
-  closedAt         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   
   @@map("vendor_inventory_assignments")
 }
 
 // Tabla de Ventas de Vendedores
 model VendorSale {
-  id          String           @id @default(uuid())
+  id          String   @id @default(uuid())
   totalAmount Float
+  saleTime    DateTime @default(now())
   
   vendorId    String
-  vendor      Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
   
   companyId   String
-  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
   items       VendorSaleItem[]
   
-  createdAt   DateTime         @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@map("vendor_sales")
 }
 
 // Tabla de Items de Venta de Vendedores
 model VendorSaleItem {
-  id         String      @id @default(uuid())
+  id         String   @id @default(uuid())
   quantity   Int
   unitPrice  Float
   subtotal   Float
   
   saleId     String
-  sale       VendorSale  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale       VendorSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
   
   productId  String
-  product    Product     @relation(fields: [productId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
   
-  createdAt  DateTime    @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   
   @@map("vendor_sale_items")
-}
-
-// Tabla de Historial de Modificaciones de Arriendos
-model RentalModification {
-  id            String   @id @default(uuid())
-  rentalId      String
-  rental        Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
-  
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  
-  itemsAdded    Int      @default(0)
-  itemsRemoved  Int      @default(0)
-  previousTotal Float
-  newTotal      Float
-  modifiedAt    DateTime @default(now())
-  
-  @@map("rental_modifications")
 }
