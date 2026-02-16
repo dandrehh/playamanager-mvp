@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npx prisma migrate deploy && npx prisma generate && npx tsc --skipLibCheck || true && node dist/server.js",
+    "startCommand": "npx prisma migrate deploy && npx prisma generate && npm run seed && npx tsc --skipLibCheck || true && node dist/server.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
