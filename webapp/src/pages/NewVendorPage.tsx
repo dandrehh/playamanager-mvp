@@ -2,82 +2,72 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 
-export default function NewVendorPage() {
+const NewVendorPage = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
+    name: ''
   });
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSave = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!formData.name.trim()) {
-      alert('El nombre del vendedor es requerido');
+      alert('El nombre es requerido');
       return;
     }
 
-    setSaving(true);
-
+    setLoading(true);
     try {
-      const response = await apiClient.post('/vendors', formData);
-      alert('Vendedor creado exitosamente');
-      navigate(`/vendors/${response.data.vendor.id}`);
+      await apiClient.post('/vendors', formData);
+      navigate('/vendors');
     } catch (error: any) {
-      alert(error.response?.data?.message || 'No se pudo crear el vendedor');
+      console.error('Error creating vendor:', error);
+      alert(error.response?.data?.message || 'Error al crear vendedor');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-4 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <button onClick={() => navigate('/vendors')} className="text-2xl hover:text-primary">
-            ←
-          </button>
-          <h1 className="text-xl font-bold">Nuevo Vendedor</h1>
-          <div className="w-8"></div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto p-4">
-        <div className="space-y-4">
+    <div className="max-w-2xl mx-auto">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h1 className="text-2xl font-bold mb-6">Nuevo Vendedor</h1>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Nombre del Vendedor
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nombre *
             </label>
             <input
               type="text"
-              className="input"
-              placeholder="e.g. Carlos Ramírez"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Teléfono (opcional)
-            </label>
-            <input
-              type="tel"
-              className="input"
-              placeholder="+56 9 1234 5678"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/vendors')}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? 'Creando...' : 'Crear Vendedor'}
+            </button>
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed mt-8"
-          >
-            {saving ? 'Creando...' : 'CREAR VENDEDOR'}
-          </button>
-        </div>
-      </main>
+        </form>
+      </div>
     </div>
   );
-}
+};
+
+export default NewVendorPage;

@@ -1,163 +1,130 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
 
 interface Vendor {
   id: string;
   name: string;
-  phone?: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'ON_BREAK';
-  totalSalesToday: number;
-  inventoryAssignments: Array<{
-    product: {
-      name: string;
-    };
-    quantityAssigned: number;
-    quantitySold: number;
-  }>;
+  isActive: boolean;
+  currentShiftStart?: string;
+  currentShiftInventory?: any[];
 }
 
-export default function VendorsPage() {
+const VendorsPage = () => {
   const navigate = useNavigate();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     activeVendors: 0,
-    todaySales: 0,
-    todayRevenue: 0,
+    totalSalesToday: 0
   });
 
   useEffect(() => {
-    loadData();
+    fetchVendors();
+    fetchStats();
   }, []);
 
-  const loadData = async () => {
+  const fetchVendors = async () => {
     try {
-      const [vendorsRes, statsRes] = await Promise.all([
-        apiClient.get('/vendors'),
-        apiClient.get('/vendors/stats'),
-      ]);
-      setVendors(vendorsRes.data.vendors);
-      setStats(statsRes.data.stats);
+      const response = await apiClient.get('/vendors');
+      setVendors(response.data);
     } catch (error) {
-      console.error('Error loading vendors:', error);
+      console.error('Error fetching vendors:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('es-CL')}`;
+  const fetchStats = async () => {
+    try {
+      const response = await apiClient.get('/vendors/stats');
+      setStats(response.data);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
   };
 
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      ACTIVE: { bg: 'bg-green-100', text: 'text-green-800', label: '🟢 ACTIVE' },
-      INACTIVE: { bg: 'bg-gray-100', text: 'text-gray-600', label: '⚫ OFFLINE' },
-      ON_BREAK: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: '🟡 BREAK' },
-    };
-    return badges[status as keyof typeof badges];
-  };
+  if (loading) {
+    return <div className="text-center py-8">Cargando...</div>;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b px-4 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <button onClick={() => navigate('/dashboard')} className="text-2xl hover:text-primary">
-            ←
-          </button>
-          <h1 className="text-xl font-bold">Panel de Vendedores</h1>
-          <button
-            onClick={() => navigate('/vendors/new')}
-            className="bg-secondary text-white px-4 py-2 rounded-lg font-semibold"
-          >
-            + Agregar
-          </button>
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Vendedores</h1>
+        <button
+          onClick={() => navigate('/vendors/new')}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          + Nuevo Vendedor
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-gray-600 text-sm mb-2">Vendedores Activos</h3>
+          <p className="text-3xl font-bold">{stats.activeVendors}</p>
         </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto p-4">
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="card text-center">
-            <p className="text-sm font-semibold text-gray-600 mb-2">VENDEDORES ACTIVOS</p>
-            <p className="text-4xl font-bold text-gray-900">{stats.activeVendors}</p>
-          </div>
-          <div className="bg-green-500 text-white rounded-xl p-4 text-center">
-            <p className="text-sm font-semibold opacity-90 mb-2">INGRESOS DEL DÍA</p>
-            <p className="text-3xl font-bold">{formatCurrency(stats.todayRevenue)}</p>
-            <p className="text-xs opacity-80 mt-1">{stats.todaySales} ventas</p>
-          </div>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-gray-600 text-sm mb-2">Ventas Hoy</h3>
+          <p className="text-3xl font-bold">
+            ${stats.totalSalesToday.toLocaleString()}
+          </p>
         </div>
+      </div>
 
-        {/* Vendors List */}
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">TODOS LOS VENDEDORES</h2>
-
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          </div>
-        ) : vendors.length === 0 ? (
-          <div className="card text-center py-8">
-            <p className="text-gray-500 mb-4">No hay vendedores registrados</p>
-            <button onClick={() => navigate('/vendors/new')} className="btn-primary">
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {vendors.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p className="mb-4">No hay vendedores registrados</p>
+            <button
+              onClick={() => navigate('/vendors/new')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
               Crear Primer Vendedor
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {vendors.map((vendor) => {
-              const badge = getStatusBadge(vendor.status);
-              return (
-                <div
-                  key={vendor.id}
-                  onClick={() => navigate(`/vendors/${vendor.id}`)}
-                  className="card cursor-pointer hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl">👤</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900">{vendor.name}</h3>
-                      {vendor.phone && (
-                        <p className="text-sm text-gray-600">{vendor.phone}</p>
+          <div className="divide-y">
+            {vendors.map((vendor) => (
+              <div
+                key={vendor.id}
+                onClick={() => navigate(`/vendors/${vendor.id}`)}
+                className="p-4 hover:bg-gray-50 cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">{vendor.name}</h3>
+                    <div className="flex items-center gap-4 mt-2">
+                      <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                        vendor.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {vendor.isActive ? 'Activo' : 'Inactivo'}
+                      </span>
+                      {vendor.currentShiftStart && (
+                        <span className="text-sm text-gray-600">
+                          Turno desde {new Date(vendor.currentShiftStart).toLocaleTimeString()}
+                        </span>
                       )}
                     </div>
-                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${badge.bg} ${badge.text}`}>
-                      {badge.label}
-                    </div>
                   </div>
-
-                  {vendor.status === 'ACTIVE' && vendor.inventoryAssignments.length > 0 && (
-                    <div className="bg-gray-50 rounded-lg p-3 mb-2">
-                      <p className="text-xs font-semibold text-gray-600 mb-1">INVENTORY:</p>
-                      <p className="text-sm text-gray-900">
-                        {vendor.inventoryAssignments
-                          .map(
-                            (inv) =>
-                              `${inv.quantityAssigned - inv.quantitySold}/${inv.quantityAssigned} ${inv.product.name}`
-                          )
-                          .join(' • ')}
+                  <div className="text-right">
+                    {vendor.currentShiftInventory && vendor.currentShiftInventory.length > 0 && (
+                      <p className="text-sm text-gray-600">
+                        {vendor.currentShiftInventory.length} productos
                       </p>
-                    </div>
-                  )}
-
-                  {vendor.totalSalesToday > 0 && (
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                      <span className="text-sm text-gray-600">Ventas de Hoy:</span>
-                      <span className="font-bold text-green-600">
-                        {formatCurrency(vendor.totalSalesToday)}
-                      </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
-}
+};
+
+export default VendorsPage;
