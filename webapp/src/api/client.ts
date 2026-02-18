@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// Usar variable de entorno o fallback a localhost para desarrollo
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const apiClient = axios.create({
@@ -11,7 +10,6 @@ const apiClient = axios.create({
   },
 });
 
-// Interceptor para agregar token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -23,7 +21,6 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar errores
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
