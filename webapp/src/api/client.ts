@@ -1,18 +1,7 @@
 import axios from 'axios';
 
-// Detectar automáticamente la URL correcta del backend
-const getApiUrl = () => {
-  // Si estamos en localhost (Mac), usar localhost
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://localhost:3000/api';
-  }
-  
-  // Si estamos en red (iPhone), usar la misma IP que la webapp
-  const host = window.location.hostname;
-  return `http://${host}:3000/api`;
-};
-
-const API_URL = getApiUrl();
+// Usar variable de entorno o fallback a localhost para desarrollo
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const apiClient = axios.create({
   baseURL: API_URL,
