@@ -93,6 +93,56 @@ export const createVendor = async (req: Request, res: Response) => {
   }
 };
 
+export const updateVendor = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user!;
+    const { name } = req.body;
+
+    const vendor = await prisma.vendor.findFirst({
+      where: { id, companyId }
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendedor no encontrado' });
+    }
+
+    const updated = await prisma.vendor.update({
+      where: { id },
+      data: {
+        name: name?.trim() || vendor.name
+      }
+    });
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating vendor:', error);
+    res.status(500).json({ message: 'Error al actualizar vendedor' });
+  }
+};
+
+export const deleteVendor = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user!;
+
+    const vendor = await prisma.vendor.findFirst({
+      where: { id, companyId }
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendedor no encontrado' });
+    }
+
+    await prisma.vendor.delete({ where: { id } });
+
+    res.json({ message: 'Vendedor eliminado' });
+  } catch (error) {
+    console.error('Error deleting vendor:', error);
+    res.status(500).json({ message: 'Error al eliminar vendedor' });
+  }
+};
+
 export const getVendorStats = async (req: Request, res: Response) => {
   try {
     const { companyId } = req.user!;
