@@ -55,7 +55,12 @@ const VendorDetailPage = () => {
   const fetchProducts = async () => {
     try {
       const response = await apiClient.get('/products');
-      const vendorProducts = response.data.filter((p: Product) => p.category === 'VENDOR');
+      console.log('Products response:', response.data);
+      
+      // Manejar diferentes formatos de respuesta
+      let productsList = Array.isArray(response.data) ? response.data : response.data.products || [];
+      
+      const vendorProducts = productsList.filter((p: Product) => p.category === 'VENDOR');
       setProducts(vendorProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -79,6 +84,7 @@ const VendorDetailPage = () => {
       setSelectedProducts({});
       fetchVendor();
     } catch (error: any) {
+      console.error('Error assigning inventory:', error);
       alert(error.response?.data?.message || 'Error al asignar inventario');
     }
   };
@@ -107,6 +113,7 @@ const VendorDetailPage = () => {
       setSelectedProducts({});
       fetchVendor();
     } catch (error: any) {
+      console.error('Error registering sale:', error);
       alert(error.response?.data?.message || 'Error al registrar venta');
     }
   };
@@ -119,6 +126,7 @@ const VendorDetailPage = () => {
       alert('Turno cerrado');
       fetchVendor();
     } catch (error: any) {
+      console.error('Error closing shift:', error);
       alert(error.response?.data?.message || 'Error al cerrar turno');
     }
   };
@@ -219,26 +227,32 @@ const VendorDetailPage = () => {
               {vendor.isActive ? 'Recargar Inventario' : 'Asignar Inventario Inicial'}
             </h2>
             
-            <div className="space-y-3 mb-6">
-              {products.map((product) => (
-                <div key={product.id} className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <p className="font-medium">{product.name}</p>
-                    <p className="text-sm text-gray-600">${product.price.toLocaleString()}</p>
+            {products.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">
+                No hay productos para vendedores. Créalos en "Gestionar Productos".
+              </p>
+            ) : (
+              <div className="space-y-3 mb-6">
+                {products.map((product) => (
+                  <div key={product.id} className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-sm text-gray-600">${product.price.toLocaleString()}</p>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={selectedProducts[product.id] || 0}
+                      onChange={(e) => setSelectedProducts({
+                        ...selectedProducts,
+                        [product.id]: parseInt(e.target.value) || 0
+                      })}
+                      className="w-20 px-2 py-1 border rounded text-center"
+                    />
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    value={selectedProducts[product.id] || 0}
-                    onChange={(e) => setSelectedProducts({
-                      ...selectedProducts,
-                      [product.id]: parseInt(e.target.value) || 0
-                    })}
-                    className="w-20 px-2 py-1 border rounded text-center"
-                  />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -252,7 +266,8 @@ const VendorDetailPage = () => {
               </button>
               <button
                 onClick={handleAssignInventory}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={products.length === 0}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 Confirmar
               </button>
@@ -267,29 +282,35 @@ const VendorDetailPage = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">
             <h2 className="text-xl font-bold mb-4">Registrar Venta</h2>
             
-            <div className="space-y-3 mb-6">
-              {vendor.currentShiftInventory?.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 border rounded">
-                  <div>
-                    <p className="font-medium">{item.product.name}</p>
-                    <p className="text-sm text-gray-600">
-                      ${item.product.price.toLocaleString()} | Disponible: {item.quantityCurrent}
-                    </p>
+            {!vendor.currentShiftInventory || vendor.currentShiftInventory.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">
+                No hay inventario asignado. Inicia turno primero.
+              </p>
+            ) : (
+              <div className="space-y-3 mb-6">
+                {vendor.currentShiftInventory.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 border rounded">
+                    <div>
+                      <p className="font-medium">{item.product.name}</p>
+                      <p className="text-sm text-gray-600">
+                        ${item.product.price.toLocaleString()} | Disponible: {item.quantityCurrent}
+                      </p>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max={item.quantityCurrent}
+                      value={selectedProducts[item.product.id] || 0}
+                      onChange={(e) => setSelectedProducts({
+                        ...selectedProducts,
+                        [item.product.id]: Math.min(parseInt(e.target.value) || 0, item.quantityCurrent)
+                      })}
+                      className="w-20 px-2 py-1 border rounded text-center"
+                    />
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max={item.quantityCurrent}
-                    value={selectedProducts[item.product.id] || 0}
-                    onChange={(e) => setSelectedProducts({
-                      ...selectedProducts,
-                      [item.product.id]: Math.min(parseInt(e.target.value) || 0, item.quantityCurrent)
-                    })}
-                    className="w-20 px-2 py-1 border rounded text-center"
-                  />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -303,7 +324,8 @@ const VendorDetailPage = () => {
               </button>
               <button
                 onClick={handleRegisterSale}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                disabled={!vendor.currentShiftInventory || vendor.currentShiftInventory.length === 0}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 Registrar Venta
               </button>
