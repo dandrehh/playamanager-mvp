@@ -31,6 +31,8 @@ const VendorDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<{[key: string]: number}>({});
 
@@ -55,7 +57,6 @@ const VendorDetailPage = () => {
   const fetchProducts = async () => {
     try {
       const response = await apiClient.get('/products');
-      console.log('Products response:', response.data);
       
       let productsList = Array.isArray(response.data) ? response.data : response.data.products || [];
       
@@ -119,6 +120,38 @@ const VendorDetailPage = () => {
     }
   };
 
+  const handleEditVendor = async () => {
+    if (!editName.trim()) {
+      alert('El nombre es requerido');
+      return;
+    }
+
+    try {
+      await apiClient.put(`/vendors/${id}`, { name: editName });
+      alert('Vendedor actualizado');
+      setShowEditModal(false);
+      fetchVendor();
+    } catch (error: any) {
+      console.error('Error updating vendor:', error);
+      alert(error.response?.data?.message || 'Error al actualizar vendedor');
+    }
+  };
+
+  const handleDeleteVendor = async () => {
+    if (!confirm(`¿Eliminar vendedor ${vendor?.name}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    try {
+      await apiClient.delete(`/vendors/${id}`);
+      alert('Vendedor eliminado');
+      navigate('/vendors');
+    } catch (error: any) {
+      console.error('Error deleting vendor:', error);
+      alert(error.response?.data?.message || 'Error al eliminar vendedor');
+    }
+  };
+
   const handleCloseShift = async () => {
     if (!confirm('¿Cerrar turno del vendedor?')) return;
 
@@ -126,12 +159,32 @@ const VendorDetailPage = () => {
       const response = await apiClient.post(`/vendors/${id}/close-shift`, {});
       const summary = response.data.summary;
       
-      alert(
-        `Turno cerrado exitosamente\n\n` +
-        `Total asignado: ${summary?.totalAssigned || 0} unidades\n` +
-        `Total vendido: ${summary?.totalSold || 0} unidades\n` +
-        `Total devuelto: ${summary?.totalRemaining || 0} unidades`
-      );
+      let detailMessage = '═══════════════════════════\n';
+      detailMessage += '   RESUMEN DE TURNO\n';
+      detailMessage += '═══════════════════════════\n\n';
+      
+      detailMessage += `📦 Total asignado: ${summary?.totalAssigned || 0} unidades\n`;
+      detailMessage += `✅ Total vendido: ${summary?.totalSold || 0} unidades\n`;
+      detailMessage += `📥 Total devuelto: ${summary?.totalRemaining || 0} unidades\n\n`;
+      
+      detailMessage += '💰 VENTAS DEL TURNO:\n';
+      detailMessage += '───────────────────────────\n';
+      
+      if (summary?.salesDetail && summary.salesDetail.length > 0) {
+        summary.salesDetail.forEach((item: any) => {
+          detailMessage += `\n${item.productName}:\n`;
+          detailMessage += `  • Vendido: ${item.quantitySold} x $${item.unitPrice.toLocaleString()}\n`;
+          detailMessage += `  • Subtotal: $${item.totalRevenue.toLocaleString()}\n`;
+        });
+      } else {
+        detailMessage += '\nNo hubo ventas en este turno\n';
+      }
+      
+      detailMessage += '\n═══════════════════════════\n';
+      detailMessage += `💵 TOTAL A ENTREGAR: $${(summary?.totalRevenue || 0).toLocaleString()}\n`;
+      detailMessage += '═══════════════════════════';
+      
+      alert(detailMessage);
       
       fetchVendor();
     } catch (error: any) {
@@ -140,7 +193,6 @@ const VendorDetailPage = () => {
     }
   };
 
-  // Calcular total de venta en tiempo real
   const calculateSaleTotal = () => {
     if (!vendor?.currentShiftInventory) return 0;
     
@@ -166,16 +218,37 @@ const VendorDetailPage = () => {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => navigate('/vendors')}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <h1 className="text-2xl font-bold">Vendedor: {vendor.name}</h1>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/vendors')}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <h1 className="text-2xl font-bold">Vendedor: {vendor.name}</h1>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setEditName(vendor.name);
+              setShowEditModal(true);
+            }}
+            className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
+          >
+            ✏️ Editar
+          </button>
+          <button
+            onClick={handleDeleteVendor}
+            disabled={vendor.isActive}
+            className="px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            title={vendor.isActive ? 'Cierra el turno antes de eliminar' : ''}
+          >
+            🗑️ Eliminar
+          </button>
+        </div>
       </div>
 
       {/* Status Card */}
@@ -239,6 +312,43 @@ const VendorDetailPage = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">Editar Vendedor</h2>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre
+              </label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="Nombre del vendedor"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEditVendor}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Guardar
+              </button>
+            </div>
           </div>
         </div>
       )}
