@@ -5,6 +5,7 @@ import authRoutes from './routes/auth.routes';
 import productRoutes from './routes/product.routes';
 import rentalRoutes from './routes/rental.routes';
 import vendorRoutes from './routes/vendor.routes';
+import userRoutes from './routes/user.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/rentals', rentalRoutes);
 app.use('/api/vendors', vendorRoutes);
+app.use('/api/users', userRoutes);
 
 app.use(errorHandler);
 
