@@ -154,11 +154,14 @@ export const getVendorStats = async (req: Request, res: Response) => {
       }
     });
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
     const totalSalesToday = await prisma.vendorSale.aggregate({
       where: {
         companyId,
         saleTime: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0))
+          gte: todayStart
         }
       },
       _sum: {
@@ -167,8 +170,11 @@ export const getVendorStats = async (req: Request, res: Response) => {
     });
 
     res.json({
-      activeVendors,
-      totalSalesToday: totalSalesToday._sum.totalAmount || 0
+      success: true,
+      stats: {
+        activeVendors,
+        todayRevenue: totalSalesToday._sum.totalAmount || 0
+      }
     });
   } catch (error) {
     console.error('Error fetching vendor stats:', error);
@@ -349,7 +355,6 @@ export const closeShift = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'El vendedor no tiene turno activo' });
     }
 
-    // Obtener ventas del turno actual
     const todayStart = vendor.currentShiftStart || new Date();
     const salesDuringShift = await prisma.vendorSale.findMany({
       where: {
@@ -360,13 +365,11 @@ export const closeShift = async (req: Request, res: Response) => {
       }
     });
 
-    // Calcular totales
     const totalAssigned = vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityStart, 0);
     const totalRemaining = vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityCurrent, 0);
     const totalSold = totalAssigned - totalRemaining;
     const totalRevenue = salesDuringShift.reduce((sum, sale) => sum + sale.totalAmount, 0);
 
-    // Detalle por producto
     const salesDetail = vendor.currentShiftInventory
       .map(item => {
         const soldQuantity = item.quantityStart - item.quantityCurrent;
