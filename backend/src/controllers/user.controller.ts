@@ -8,7 +8,7 @@ export const getUsers = async (req: Request, res: Response) => {
     const { companyId, role } = req.user!;
 
     // Solo admin puede ver usuarios
-    if (role !== 'ADMIN') {
+    if (role !== 'ADMIN' && role !== 'ADMIN_KIOSK') {
       return res.status(403).json({ message: 'No autorizado' });
     }
 
@@ -39,7 +39,7 @@ export const createUser = async (req: Request, res: Response) => {
     const { username, password, fullName, role } = req.body;
 
     // Solo admin puede crear usuarios
-    if (userRole !== 'ADMIN') {
+    if (userRole !== 'ADMIN' && userRole !== 'ADMIN_KIOSK') {
       return res.status(403).json({ message: 'No autorizado' });
     }
 
@@ -106,7 +106,7 @@ export const updateUser = async (req: Request, res: Response) => {
     const { isActive, password } = req.body;
 
     // Solo admin puede actualizar usuarios
-    if (userRole !== 'ADMIN') {
+    if (userRole !== 'ADMIN' && userRole !== 'ADMIN_KIOSK') {
       return res.status(403).json({ message: 'No autorizado' });
     }
 

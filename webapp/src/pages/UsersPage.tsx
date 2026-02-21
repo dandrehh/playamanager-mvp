@@ -30,7 +30,7 @@ const UsersPage = () => {
 
   useEffect(() => {
     // Solo admin puede acceder
-    if (user?.role !== 'ADMIN') {
+    if (user?.role !== 'ADMIN' && user?.role !== 'ADMIN_KIOSK') {
       alert('No tienes permisos para acceder a esta página');
       navigate('/');
       return;

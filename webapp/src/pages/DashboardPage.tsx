@@ -52,6 +52,8 @@ export default function DashboardPage() {
     return `$${amount.toLocaleString('es-CL')}`;
   };
 
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'ADMIN_KIOSK';
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -196,7 +198,7 @@ export default function DashboardPage() {
           </button>
 
           {/* Solo visible para ADMIN */}
-          {user?.role === 'ADMIN' && (
+          {isAdmin && (
             <button
               onClick={() => navigate('/users')}
               className="card hover:shadow-md transition-shadow text-center py-6 col-span-2"
