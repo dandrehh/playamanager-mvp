@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { getUsers, createUser, updateUser } from '../controllers/user.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticateToken } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Todas las rutas requieren autenticación
-router.use(authenticate);
+router.use(authenticateToken);
 
 // GET /api/users - Listar usuarios
 router.get('/', getUsers);
