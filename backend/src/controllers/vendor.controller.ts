@@ -194,27 +194,51 @@ export const assignInventory = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Vendedor no encontrado' });
     }
 
+    const isFirstAssignment = !vendor.isActive;
+
     await prisma.$transaction(async (tx) => {
-      await tx.vendorInventoryAssignment.deleteMany({
-        where: { vendorId: id }
-      });
+      // Si es el primer turno del día, iniciar turno
+      if (isFirstAssignment) {
+        await tx.vendor.update({
+          where: { id },
+          data: {
+            currentShiftStart: new Date(),
+            isActive: true
+          }
+        });
+      }
 
-      await tx.vendor.update({
-        where: { id },
-        data: {
-          currentShiftStart: new Date(),
-          isActive: true
+      // Procesar cada producto
+      for (const item of inventory) {
+        // Buscar si ya existe asignación para este producto
+        const existing = await tx.vendorInventoryAssignment.findFirst({
+          where: {
+            vendorId: id,
+            productId: item.productId
+          }
+        });
+
+        if (existing) {
+          // SUMAR a la cantidad existente
+          await tx.vendorInventoryAssignment.update({
+            where: { id: existing.id },
+            data: {
+              quantityStart: existing.quantityStart + item.quantity,
+              quantityCurrent: existing.quantityCurrent + item.quantity
+            }
+          });
+        } else {
+          // Crear nueva asignación
+          await tx.vendorInventoryAssignment.create({
+            data: {
+              vendorId: id,
+              productId: item.productId,
+              quantityStart: item.quantity,
+              quantityCurrent: item.quantity
+            }
+          });
         }
-      });
-
-      await tx.vendorInventoryAssignment.createMany({
-        data: inventory.map((item: any) => ({
-          vendorId: id,
-          productId: item.productId,
-          quantityStart: item.quantity,
-          quantityCurrent: item.quantity
-        }))
-      });
+      }
     });
 
     const updatedVendor = await prisma.vendor.findUnique({
@@ -253,6 +277,10 @@ export const registerSale = async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'Vendedor no encontrado' });
     }
 
+    if (!vendor.isActive) {
+      return res.status(400).json({ message: 'El vendedor no tiene turno activo' });
+    }
+
     const totalAmount = items.reduce(
       (sum: number, item: any) => sum + item.quantity * item.unitPrice,
       0
@@ -281,6 +309,7 @@ export const registerSale = async (req: Request, res: Response) => {
       }
     });
 
+    // Actualizar inventario (restar vendido)
     for (const item of items) {
       await prisma.vendorInventoryAssignment.updateMany({
         where: {
@@ -308,18 +337,34 @@ export const closeShift = async (req: Request, res: Response) => {
     const { companyId } = req.user!;
 
     const vendor = await prisma.vendor.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        currentShiftInventory: true
+      }
     });
 
     if (!vendor || vendor.companyId !== companyId) {
       return res.status(404).json({ message: 'Vendedor no encontrado' });
     }
 
+    if (!vendor.isActive) {
+      return res.status(400).json({ message: 'El vendedor no tiene turno activo' });
+    }
+
+    // Calcular resumen del turno
+    const summary = {
+      totalAssigned: vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityStart, 0),
+      totalRemaining: vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityCurrent, 0),
+      totalSold: vendor.currentShiftInventory.reduce((sum, item) => sum + (item.quantityStart - item.quantityCurrent), 0)
+    };
+
     await prisma.$transaction(async (tx) => {
+      // Limpiar inventario
       await tx.vendorInventoryAssignment.deleteMany({
         where: { vendorId: id }
       });
 
+      // Cerrar turno
       await tx.vendor.update({
         where: { id },
         data: {
@@ -329,7 +374,10 @@ export const closeShift = async (req: Request, res: Response) => {
       });
     });
 
-    res.json({ message: 'Turno cerrado exitosamente' });
+    res.json({ 
+      message: 'Turno cerrado exitosamente',
+      summary
+    });
   } catch (error) {
     console.error('Error closing shift:', error);
     res.status(500).json({ message: 'Error al cerrar turno' });
