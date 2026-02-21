@@ -8,7 +8,6 @@ interface User {
   username: string;
   fullName: string;
   role: 'ADMIN_KIOSK' | 'OPERATOR';
-  isActive: boolean;
   createdAt: string;
 }
 
@@ -72,21 +71,6 @@ const UsersPage = () => {
     }
   };
 
-  const handleToggleActive = async (userId: string, isActive: boolean) => {
-    const action = isActive ? 'desactivar' : 'activar';
-    if (!confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} este usuario?`)) {
-      return;
-    }
-
-    try {
-      await apiClient.put(`/users/${userId}`, { isActive: !isActive });
-      alert(`Usuario ${action}do exitosamente`);
-      fetchUsers();
-    } catch (error: any) {
-      alert(error.response?.data?.message || `Error al ${action} usuario`);
-    }
-  };
-
   const handleChangePassword = async () => {
     if (!newPassword || newPassword.length < 6) {
       alert('La contraseña debe tener al menos 6 caracteres');
@@ -99,6 +83,7 @@ const UsersPage = () => {
       setShowPasswordModal(false);
       setNewPassword('');
       setSelectedUserId(null);
+      fetchUsers();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Error al cambiar contraseña');
     }
@@ -152,13 +137,6 @@ const UsersPage = () => {
                       }`}>
                         {u.role === 'ADMIN_KIOSK' ? 'ADMIN' : 'OPERADOR'}
                       </span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        u.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {u.isActive ? 'Activo' : 'Inactivo'}
-                      </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
                       Usuario: <span className="font-medium">{u.username}</span>
@@ -176,16 +154,6 @@ const UsersPage = () => {
                       className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
                     >
                       🔑 Cambiar Contraseña
-                    </button>
-                    <button
-                      onClick={() => handleToggleActive(u.id, u.isActive)}
-                      className={`px-3 py-2 text-sm rounded-lg ${
-                        u.isActive
-                          ? 'bg-red-100 hover:bg-red-200 text-red-700'
-                          : 'bg-green-100 hover:bg-green-200 text-green-700'
-                      }`}
-                    >
-                      {u.isActive ? '🚫 Desactivar' : '✅ Activar'}
                     </button>
                   </div>
                 </div>

@@ -19,7 +19,6 @@ export const getUsers = async (req: Request, res: Response) => {
         username: true,
         fullName: true,
         role: true,
-        isActive: true,
         createdAt: true
       },
       orderBy: { createdAt: 'desc' }
@@ -78,15 +77,13 @@ export const createUser = async (req: Request, res: Response) => {
         password: hashedPassword,
         fullName,
         role,
-        companyId,
-        isActive: true
+        companyId
       },
       select: {
         id: true,
         username: true,
         fullName: true,
         role: true,
-        isActive: true,
         createdAt: true
       }
     });
@@ -103,7 +100,7 @@ export const updateUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { companyId, role: userRole } = req.user!;
-    const { isActive, password } = req.body;
+    const { password } = req.body;
 
     // Solo admin puede actualizar usuarios
     if (userRole !== 'ADMIN' && userRole !== 'ADMIN_KIOSK') {
@@ -119,11 +116,6 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     const updateData: any = {};
-
-    // Actualizar estado activo/inactivo
-    if (typeof isActive === 'boolean') {
-      updateData.isActive = isActive;
-    }
 
     // Actualizar contraseña si se proporciona
     if (password) {
@@ -141,7 +133,6 @@ export const updateUser = async (req: Request, res: Response) => {
         username: true,
         fullName: true,
         role: true,
-        isActive: true,
         createdAt: true
       }
     });
