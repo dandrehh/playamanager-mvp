@@ -19,7 +19,7 @@ interface Rental {
 interface VendorSale {
   id: string;
   totalAmount: number;
-  createdAt: string;
+  saleTime: string;
   vendor: {
     name: string;
   };
@@ -49,7 +49,6 @@ export default function HistoryPage() {
         const response = await apiClient.get('/rentals?status=CLOSED');
         const allRentals = response.data.rentals;
 
-        // Filter by date
         const filtered = allRentals.filter((rental: Rental) => {
           const rentalDate = new Date(rental.createdAt);
           const now = new Date();
@@ -67,27 +66,27 @@ export default function HistoryPage() {
 
         setRentals(filtered);
       } else {
-        // Load vendor sales
+        // Cargar ventas de vendedores
         const vendorsResponse = await apiClient.get('/vendors');
-        const allVendors = vendorsResponse.data.vendors;
+        const allVendors = Array.isArray(vendorsResponse.data) ? vendorsResponse.data : [];
 
-        // Recopilar todas las ventas de todos los vendedores
         const allSales: VendorSale[] = [];
+        
         for (const vendor of allVendors) {
           const vendorDetail = await apiClient.get(`/vendors/${vendor.id}`);
-          const sales = vendorDetail.data.vendor.sales || [];
+          const sales = vendorDetail.data.sales || [];
           
           sales.forEach((sale: any) => {
             allSales.push({
               ...sale,
-              vendor: { name: vendor.name },
+              vendor: { name: vendor.name }
             });
           });
         }
 
-        // Filter by date
+        // Filtrar por fecha
         const filtered = allSales.filter((sale) => {
-          const saleDate = new Date(sale.createdAt);
+          const saleDate = new Date(sale.saleTime);
           const now = new Date();
 
           if (filter === 'today') {
@@ -101,8 +100,7 @@ export default function HistoryPage() {
           }
         });
 
-        // Ordenar por fecha más reciente primero
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        filtered.sort((a, b) => new Date(b.saleTime).getTime() - new Date(a.saleTime).getTime());
 
         setVendorSales(filtered);
       }
@@ -139,9 +137,9 @@ export default function HistoryPage() {
     const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return 'Hoy';
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return 'Ayer';
     } else {
       return date.toLocaleDateString('es-CL', {
         day: '2-digit',
@@ -155,7 +153,7 @@ export default function HistoryPage() {
       {/* Header */}
       <header className="bg-white border-b px-4 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <button onClick={() => navigate('/dashboard')} className="text-2xl hover:text-primary">
+          <button onClick={() => navigate('/')} className="text-2xl hover:text-primary">
             ←
           </button>
           <h1 className="text-xl font-bold">Historial</h1>
@@ -170,7 +168,7 @@ export default function HistoryPage() {
             onClick={() => setActiveTab('ARRIENDOS')}
             className={`flex-1 py-4 font-semibold border-b-2 transition-colors ${
               activeTab === 'ARRIENDOS'
-                ? 'border-primary text-primary'
+                ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-gray-600'
             }`}
           >
@@ -180,7 +178,7 @@ export default function HistoryPage() {
             onClick={() => setActiveTab('VENDEDORES')}
             className={`flex-1 py-4 font-semibold border-b-2 transition-colors ${
               activeTab === 'VENDEDORES'
-                ? 'border-primary text-primary'
+                ? 'border-orange-600 text-orange-600'
                 : 'border-transparent text-gray-600'
             }`}
           >
@@ -198,11 +196,13 @@ export default function HistoryPage() {
               onClick={() => setFilter(f)}
               className={`flex-1 py-2 px-4 rounded-lg font-semibold transition-colors ${
                 filter === f
-                  ? 'bg-primary text-white'
+                  ? activeTab === 'ARRIENDOS' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {f === 'today' ? 'Today' : f === 'week' ? 'Esta Semana' : 'Este Mes'}
+              {f === 'today' ? 'Hoy' : f === 'week' ? 'Esta Semana' : 'Este Mes'}
             </button>
           ))}
         </div>
@@ -212,12 +212,12 @@ export default function HistoryPage() {
       <main className="max-w-4xl mx-auto p-4">
         {loading ? (
           <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           </div>
         ) : activeTab === 'ARRIENDOS' ? (
           // ARRIENDOS TAB
           rentals.length === 0 ? (
-            <div className="card text-center py-12">
+            <div className="bg-white rounded-lg shadow p-8 text-center">
               <div className="text-6xl mb-4">📋</div>
               <p className="text-gray-500 text-lg">No hay registros de arriendos para este período</p>
             </div>
@@ -234,7 +234,7 @@ export default function HistoryPage() {
                   <div
                     key={rental.id}
                     onClick={() => navigate(`/rentals/${rental.id}`)}
-                    className="card cursor-pointer hover:shadow-md transition-shadow"
+                    className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-bold text-gray-900">{rental.customerName}</h3>
@@ -256,16 +256,17 @@ export default function HistoryPage() {
               </div>
 
               {/* Revenue Summary */}
-              <div className="bg-primary text-white rounded-xl p-6 text-center">
-                <p className="text-sm font-semibold opacity-90 mb-2">Ingresos Totales</p>
+              <div className="bg-blue-600 text-white rounded-xl p-6 text-center">
+                <p className="text-sm font-semibold opacity-90 mb-2">Ingresos Totales (Arriendos)</p>
                 <p className="text-4xl font-bold">{formatCurrency(calculateTotalRevenue())}</p>
+                <p className="text-sm opacity-80 mt-2">{rentals.length} arriendos</p>
               </div>
             </>
           )
         ) : (
           // VENDEDORES TAB
           vendorSales.length === 0 ? (
-            <div className="card text-center py-12">
+            <div className="bg-white rounded-lg shadow p-8 text-center">
               <div className="text-6xl mb-4">🍦</div>
               <p className="text-gray-500 text-lg">No hay ventas de vendedores para este período</p>
             </div>
@@ -273,7 +274,7 @@ export default function HistoryPage() {
             <>
               {vendorSales.length > 0 && (
                 <h2 className="text-lg font-bold text-gray-900 mb-4">
-                  {getDateLabel(vendorSales[0].createdAt)}
+                  {getDateLabel(vendorSales[0].saleTime)}
                 </h2>
               )}
 
@@ -281,7 +282,7 @@ export default function HistoryPage() {
                 {vendorSales.map((sale) => (
                   <div
                     key={sale.id}
-                    className="card"
+                    className="bg-white rounded-lg shadow p-4"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -296,7 +297,7 @@ export default function HistoryPage() {
                       {sale.items.map((i) => `${i.quantity}x ${i.product.name}`).join(', ')}
                     </p>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">{formatTime(sale.createdAt)}</span>
+                      <span className="text-sm text-gray-500">{formatTime(sale.saleTime)}</span>
                       <span className="bg-orange-100 text-orange-800 text-xs font-bold px-3 py-1 rounded-full">
                         🍦 VENDEDOR
                       </span>
@@ -307,7 +308,7 @@ export default function HistoryPage() {
 
               {/* Revenue Summary */}
               <div className="bg-orange-500 text-white rounded-xl p-6 text-center">
-                <p className="text-sm font-semibold opacity-90 mb-2">Ingresos Totales (Vendors)</p>
+                <p className="text-sm font-semibold opacity-90 mb-2">Ingresos Totales (Vendedores)</p>
                 <p className="text-4xl font-bold">{formatCurrency(calculateTotalRevenue())}</p>
                 <p className="text-sm opacity-80 mt-2">{vendorSales.length} ventas</p>
               </div>
