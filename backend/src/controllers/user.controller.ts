@@ -52,7 +52,7 @@ export const createUser = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
-    if (!['ADMIN', 'OPERATOR'].includes(role)) {
+    if (!['ADMIN_KIOSK', 'OPERATOR'].includes(role)) {
       return res.status(400).json({ message: 'Rol inválido' });
     }
 

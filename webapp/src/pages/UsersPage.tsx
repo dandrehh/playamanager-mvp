@@ -7,7 +7,7 @@ interface User {
   id: string;
   username: string;
   fullName: string;
-  role: 'ADMIN' | 'OPERATOR';
+  role: 'ADMIN_KIOSK' | 'OPERATOR';
   isActive: boolean;
   createdAt: string;
 }
@@ -24,7 +24,7 @@ const UsersPage = () => {
     username: '',
     password: '',
     fullName: '',
-    role: 'OPERATOR' as 'ADMIN' | 'OPERATOR'
+    role: 'OPERATOR' as 'ADMIN_KIOSK' | 'OPERATOR'
   });
   const [newPassword, setNewPassword] = useState('');
 
@@ -146,11 +146,11 @@ const UsersPage = () => {
                     <div className="flex items-center gap-3">
                       <h3 className="font-semibold text-lg">{u.fullName}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        u.role === 'ADMIN' 
+                        u.role === 'ADMIN_KIOSK' 
                           ? 'bg-purple-100 text-purple-800' 
                           : 'bg-blue-100 text-blue-800'
                       }`}>
-                        {u.role}
+                        {u.role === 'ADMIN_KIOSK' ? 'ADMIN' : 'OPERADOR'}
                       </span>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         u.isActive 
@@ -247,11 +247,11 @@ const UsersPage = () => {
                 </label>
                 <select
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'ADMIN' | 'OPERATOR' })}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'ADMIN_KIOSK' | 'OPERATOR' })}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   <option value="OPERATOR">Operador</option>
-                  <option value="ADMIN">Administrador</option>
+                  <option value="ADMIN_KIOSK">Administrador</option>
                 </select>
               </div>
             </div>
