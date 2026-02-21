@@ -57,7 +57,6 @@ const VendorDetailPage = () => {
       const response = await apiClient.get('/products');
       console.log('Products response:', response.data);
       
-      // Manejar diferentes formatos de respuesta
       let productsList = Array.isArray(response.data) ? response.data : response.data.products || [];
       
       const vendorProducts = productsList.filter((p: Product) => p.category === 'VENDOR');
@@ -79,7 +78,7 @@ const VendorDetailPage = () => {
 
     try {
       await apiClient.post(`/vendors/${id}/assign-inventory`, { inventory });
-      alert(vendor?.isActive ? 'Inventario recargado' : 'Turno iniciado');
+      alert(vendor?.isActive ? 'Inventario recargado exitosamente' : 'Turno iniciado exitosamente');
       setShowAssignModal(false);
       setSelectedProducts({});
       fetchVendor();
@@ -93,11 +92,13 @@ const VendorDetailPage = () => {
     const items = Object.entries(selectedProducts)
       .filter(([_, qty]) => qty > 0)
       .map(([productId, quantity]) => {
-        const product = products.find(p => p.id === productId);
+        const inventoryItem = vendor?.currentShiftInventory?.find(
+          inv => inv.product.id === productId
+        );
         return {
           productId,
           quantity,
-          unitPrice: product?.price || 0
+          unitPrice: inventoryItem?.product.price || 0
         };
       });
 
@@ -108,7 +109,7 @@ const VendorDetailPage = () => {
 
     try {
       await apiClient.post(`/vendors/${id}/register-sale`, { items });
-      alert('Venta registrada');
+      alert('Venta registrada exitosamente');
       setShowSaleModal(false);
       setSelectedProducts({});
       fetchVendor();
@@ -122,13 +123,34 @@ const VendorDetailPage = () => {
     if (!confirm('¿Cerrar turno del vendedor?')) return;
 
     try {
-      await apiClient.post(`/vendors/${id}/close-shift`, {});
-      alert('Turno cerrado');
+      const response = await apiClient.post(`/vendors/${id}/close-shift`, {});
+      const summary = response.data.summary;
+      
+      alert(
+        `Turno cerrado exitosamente\n\n` +
+        `Total asignado: ${summary?.totalAssigned || 0} unidades\n` +
+        `Total vendido: ${summary?.totalSold || 0} unidades\n` +
+        `Total devuelto: ${summary?.totalRemaining || 0} unidades`
+      );
+      
       fetchVendor();
     } catch (error: any) {
       console.error('Error closing shift:', error);
       alert(error.response?.data?.message || 'Error al cerrar turno');
     }
+  };
+
+  // Calcular total de venta en tiempo real
+  const calculateSaleTotal = () => {
+    if (!vendor?.currentShiftInventory) return 0;
+    
+    return Object.entries(selectedProducts).reduce((total, [productId, quantity]) => {
+      const item = vendor.currentShiftInventory?.find(inv => inv.product.id === productId);
+      if (item && quantity > 0) {
+        return total + (item.product.price * quantity);
+      }
+      return total;
+    }, 0);
   };
 
   if (loading) {
@@ -138,6 +160,8 @@ const VendorDetailPage = () => {
   if (!vendor) {
     return <div className="text-center py-8">Vendedor no encontrado</div>;
   }
+
+  const saleTotal = calculateSaleTotal();
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -287,29 +311,41 @@ const VendorDetailPage = () => {
                 No hay inventario asignado. Inicia turno primero.
               </p>
             ) : (
-              <div className="space-y-3 mb-6">
-                {vendor.currentShiftInventory.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">{item.product.name}</p>
-                      <p className="text-sm text-gray-600">
-                        ${item.product.price.toLocaleString()} | Disponible: {item.quantityCurrent}
-                      </p>
+              <>
+                <div className="space-y-3 mb-4">
+                  {vendor.currentShiftInventory.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 border rounded">
+                      <div>
+                        <p className="font-medium">{item.product.name}</p>
+                        <p className="text-sm text-gray-600">
+                          ${item.product.price.toLocaleString()} | Disponible: {item.quantityCurrent}
+                        </p>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max={item.quantityCurrent}
+                        value={selectedProducts[item.product.id] || 0}
+                        onChange={(e) => setSelectedProducts({
+                          ...selectedProducts,
+                          [item.product.id]: Math.min(parseInt(e.target.value) || 0, item.quantityCurrent)
+                        })}
+                        className="w-20 px-2 py-1 border rounded text-center"
+                      />
                     </div>
-                    <input
-                      type="number"
-                      min="0"
-                      max={item.quantityCurrent}
-                      value={selectedProducts[item.product.id] || 0}
-                      onChange={(e) => setSelectedProducts({
-                        ...selectedProducts,
-                        [item.product.id]: Math.min(parseInt(e.target.value) || 0, item.quantityCurrent)
-                      })}
-                      className="w-20 px-2 py-1 border rounded text-center"
-                    />
+                  ))}
+                </div>
+
+                {/* Total de Venta */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold text-blue-900">Total a Cobrar:</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      ${saleTotal.toLocaleString()}
+                    </span>
                   </div>
-                ))}
-              </div>
+                </div>
+              </>
             )}
 
             <div className="flex gap-3">
@@ -324,7 +360,7 @@ const VendorDetailPage = () => {
               </button>
               <button
                 onClick={handleRegisterSale}
-                disabled={!vendor.currentShiftInventory || vendor.currentShiftInventory.length === 0}
+                disabled={!vendor.currentShiftInventory || vendor.currentShiftInventory.length === 0 || saleTotal === 0}
                 className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 Registrar Venta
