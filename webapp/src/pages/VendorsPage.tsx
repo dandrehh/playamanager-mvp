@@ -36,8 +36,18 @@ const VendorsPage = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Vendedores</h1>
+      {/* Header con botón volver */}
+      <div className="flex items-center gap-4 mb-6">
+        <button
+          onClick={() => navigate('/')}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          title="Volver al inicio"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h1 className="text-2xl font-bold flex-1">Vendedores</h1>
         <button
           onClick={() => navigate('/vendors/new')}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -86,14 +96,14 @@ const VendorsPage = () => {
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex items-center gap-4">
                     {vendor.currentShiftInventory && vendor.currentShiftInventory.length > 0 && (
                       <p className="text-sm text-gray-600 font-medium">
                         {vendor.currentShiftInventory.length} productos asignados
                       </p>
                     )}
                     <svg 
-                      className="w-5 h-5 text-gray-400 ml-4" 
+                      className="w-5 h-5 text-gray-400" 
                       fill="none" 
                       stroke="currentColor" 
                       viewBox="0 0 24 24"
