@@ -17,6 +17,7 @@ import SyncPage from './pages/SyncPage';
 import VendorsPage from './pages/VendorsPage';
 import NewVendorPage from './pages/NewVendorPage';
 import VendorDetailPage from './pages/VendorDetailPage';
+import UsersPage from './pages/UsersPage';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -114,6 +115,14 @@ function App() {
           element={
             <ProtectedRoute>
               <VendorDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <UsersPage />
             </ProtectedRoute>
           }
         />
