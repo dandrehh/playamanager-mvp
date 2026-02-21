@@ -197,7 +197,6 @@ export const assignInventory = async (req: Request, res: Response) => {
     const isFirstAssignment = !vendor.isActive;
 
     await prisma.$transaction(async (tx) => {
-      // Si es el primer turno del día, iniciar turno
       if (isFirstAssignment) {
         await tx.vendor.update({
           where: { id },
@@ -208,9 +207,7 @@ export const assignInventory = async (req: Request, res: Response) => {
         });
       }
 
-      // Procesar cada producto
       for (const item of inventory) {
-        // Buscar si ya existe asignación para este producto
         const existing = await tx.vendorInventoryAssignment.findFirst({
           where: {
             vendorId: id,
@@ -219,7 +216,6 @@ export const assignInventory = async (req: Request, res: Response) => {
         });
 
         if (existing) {
-          // SUMAR a la cantidad existente
           await tx.vendorInventoryAssignment.update({
             where: { id: existing.id },
             data: {
@@ -228,7 +224,6 @@ export const assignInventory = async (req: Request, res: Response) => {
             }
           });
         } else {
-          // Crear nueva asignación
           await tx.vendorInventoryAssignment.create({
             data: {
               vendorId: id,
@@ -309,7 +304,6 @@ export const registerSale = async (req: Request, res: Response) => {
       }
     });
 
-    // Actualizar inventario (restar vendido)
     for (const item of items) {
       await prisma.vendorInventoryAssignment.updateMany({
         where: {
@@ -339,7 +333,11 @@ export const closeShift = async (req: Request, res: Response) => {
     const vendor = await prisma.vendor.findUnique({
       where: { id },
       include: {
-        currentShiftInventory: true
+        currentShiftInventory: {
+          include: {
+            product: true
+          }
+        }
       }
     });
 
@@ -351,20 +349,41 @@ export const closeShift = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'El vendedor no tiene turno activo' });
     }
 
-    // Calcular resumen del turno
-    const summary = {
-      totalAssigned: vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityStart, 0),
-      totalRemaining: vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityCurrent, 0),
-      totalSold: vendor.currentShiftInventory.reduce((sum, item) => sum + (item.quantityStart - item.quantityCurrent), 0)
-    };
+    // Obtener ventas del turno actual
+    const todayStart = vendor.currentShiftStart || new Date();
+    const salesDuringShift = await prisma.vendorSale.findMany({
+      where: {
+        vendorId: id,
+        saleTime: {
+          gte: todayStart
+        }
+      }
+    });
+
+    // Calcular totales
+    const totalAssigned = vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityStart, 0);
+    const totalRemaining = vendor.currentShiftInventory.reduce((sum, item) => sum + item.quantityCurrent, 0);
+    const totalSold = totalAssigned - totalRemaining;
+    const totalRevenue = salesDuringShift.reduce((sum, sale) => sum + sale.totalAmount, 0);
+
+    // Detalle por producto
+    const salesDetail = vendor.currentShiftInventory
+      .map(item => {
+        const soldQuantity = item.quantityStart - item.quantityCurrent;
+        return {
+          productName: item.product.name,
+          quantitySold: soldQuantity,
+          unitPrice: item.product.price,
+          totalRevenue: soldQuantity * item.product.price
+        };
+      })
+      .filter(item => item.quantitySold > 0);
 
     await prisma.$transaction(async (tx) => {
-      // Limpiar inventario
       await tx.vendorInventoryAssignment.deleteMany({
         where: { vendorId: id }
       });
 
-      // Cerrar turno
       await tx.vendor.update({
         where: { id },
         data: {
@@ -376,7 +395,13 @@ export const closeShift = async (req: Request, res: Response) => {
 
     res.json({ 
       message: 'Turno cerrado exitosamente',
-      summary
+      summary: {
+        totalAssigned,
+        totalSold,
+        totalRemaining,
+        totalRevenue,
+        salesDetail
+      }
     });
   } catch (error) {
     console.error('Error closing shift:', error);
